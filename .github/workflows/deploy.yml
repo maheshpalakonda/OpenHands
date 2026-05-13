@@ -17,9 +17,11 @@ jobs:
 
     steps:
 
+    # Checkout Repository
     - name: Checkout Code
       uses: actions/checkout@v4
 
+    # Configure AWS Credentials
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -27,34 +29,54 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-south-1
 
+    # Login to Amazon ECR
     - name: Login to Amazon ECR
       uses: aws-actions/amazon-ecr-login@v2
 
+    # Build Docker Image
     - name: Build Docker Image
       run: |
         docker build -t openhands:${{ github.sha }} .
 
+    # Tag Docker Image
     - name: Tag Docker Image
       run: |
         docker tag openhands:${{ github.sha }} \
         $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:${{ github.sha }}
 
+    # Push Docker Image to ECR
     - name: Push Docker Image
       run: |
         docker push \
         $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:${{ github.sha }}
 
+    # Install kubectl
     - name: Install kubectl
       uses: azure/setup-kubectl@v4
 
+    # Configure kubeconfig for EKS
     - name: Update kubeconfig
       run: |
         aws eks update-kubeconfig \
         --region $AWS_REGION \
         --name $CLUSTER_NAME
 
+    # Install Argo Rollouts Plugin
+    - name: Install Argo Rollouts Kubectl Plugin
+      run: |
+        curl -LO https://github.com/argoproj/argo-rollouts/releases/download/v1.8.3/kubectl-argo-rollouts-linux-amd64
+        chmod +x kubectl-argo-rollouts-linux-amd64
+        sudo mv kubectl-argo-rollouts-linux-amd64 /usr/local/bin/kubectl-argo-rollouts
+
+    # Deploy New Image using Argo Rollouts
     - name: Deploy to Argo Rollouts
       run: |
-        kubectl set image rollout/openhands-rollout \
+        kubectl argo rollouts set image openhands-rollout \
         openhands=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:${{ github.sha }} \
+        -n openhands
+
+    # Watch Rollout Status
+    - name: Verify Rollout Status
+      run: |
+        kubectl argo rollouts get rollout openhands-rollout \
         -n openhands
