@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+
+metadata:
+  name: openhands-rollout
+  namespace: openhands
+
+spec:
+  replicas: 2
+
+  strategy:
+    blueGreen:
+      activeService: openhands-active
+      previewService: openhands-preview
+      autoPromotionEnabled: false
+
+  selector:
+    matchLabels:
+      app: openhands
+
+  template:
+    metadata:
+      labels:
+        app: openhands
+
+    spec:
+      containers:
+      - name: openhands
+        image: 800960611458.dkr.ecr.ap-south-1.amazonaws.com/openhands:latest
+
+        ports:
+        - containerPort: 3000
