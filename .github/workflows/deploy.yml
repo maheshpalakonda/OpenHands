@@ -1,16 +1,23 @@
-name: Blue Green Deployment
+name: EKS Blue Green Deployment
 
 on:
   push:
     branches:
       - main
 
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: openhands
+  CLUSTER_NAME: openhands-cluster
+  AWS_ACCOUNT_ID: 800960611458
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
+
+    - name: Checkout Code
       uses: actions/checkout@v4
 
     - name: Configure AWS Credentials
@@ -18,42 +25,36 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+        aws-region: ap-south-1
 
-    - name: Login to ECR
-      id: login-ecr
+    - name: Login to Amazon ECR
       uses: aws-actions/amazon-ecr-login@v2
 
     - name: Build Docker Image
       run: |
-        docker build -t openhands .
+        docker build -t openhands:${{ github.sha }} .
 
-    - name: Tag Image
+    - name: Tag Docker Image
       run: |
-        docker tag openhands:latest \
-        ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:latest
+        docker tag openhands:${{ github.sha }} \
+        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:${{ github.sha }}
 
-    - name: Push Image
+    - name: Push Docker Image
       run: |
         docker push \
-        ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:latest
+        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:${{ github.sha }}
 
-    - name: Fill Image URI
-      id: task-def
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: taskdef.json
-        container-name: openhands
-        image: ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:latest
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v4
 
-    - name: Deploy Blue Green
-      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-      with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: openhands-task-service
-        cluster: openhand
-        wait-for-service-stability: true
-        codedeploy-appspec: appspec.yaml
-        codedeploy-application: openhands-codedeploy-app
-        codedeploy-deployment-group: openhands-deployment-group
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig \
+        --region $AWS_REGION \
+        --name $CLUSTER_NAME
 
+    - name: Deploy to Argo Rollouts
+      run: |
+        kubectl set image rollout/openhands-rollout \
+        openhands=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:${{ github.sha }} \
+        -n openhands
