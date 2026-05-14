@@ -1,4 +1,4 @@
-name: Deploy OpenHands
+name: EKS Blue Green Deployment
 
 on:
   push:
@@ -8,42 +8,75 @@ on:
 env:
   AWS_REGION: ap-south-1
   ECR_REPOSITORY: openhands
-  ECS_CLUSTER: openhand
-  ECS_SERVICE: openhands-task-service
+  CLUSTER_NAME: openhands-cluster
+  AWS_ACCOUNT_ID: 800960611458
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+    # Checkout Repository
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
+    # Configure AWS Credentials
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-south-1
 
-      - name: Build Docker image
-        run: |
-          docker build -t openhands .
+    # Login to Amazon ECR
+    - name: Login to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Tag Docker image
-        run: |
-          docker tag openhands:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/openhands:latest
+    # Build Docker Image
+    - name: Build Docker Image
+      run: |
+        docker build -t openhands:${{ github.sha }} .
 
-      - name: Push Docker image
-        run: |
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/openhands:latest
+    # Tag Docker Image
+    - name: Tag Docker Image
+      run: |
+        docker tag openhands:${{ github.sha }} \
+        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:${{ github.sha }}
 
-      - name: Force ECS deployment
-        run: |
-          aws ecs update-service \
-            --cluster $ECS_CLUSTER \
-            --service $ECS_SERVICE \
-            --force-new-deployment
+    # Push Docker Image to ECR
+    - name: Push Docker Image
+      run: |
+        docker push \
+        $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:${{ github.sha }}
+
+    # Install kubectl
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v4
+
+    # Configure kubeconfig for EKS
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig \
+        --region $AWS_REGION \
+        --name $CLUSTER_NAME
+
+    # Install Argo Rollouts Plugin
+    - name: Install Argo Rollouts Kubectl Plugin
+      run: |
+        curl -LO https://github.com/argoproj/argo-rollouts/releases/download/v1.8.3/kubectl-argo-rollouts-linux-amd64
+        chmod +x kubectl-argo-rollouts-linux-amd64
+        sudo mv kubectl-argo-rollouts-linux-amd64 /usr/local/bin/kubectl-argo-rollouts
+
+    # Deploy New Image using Argo Rollouts
+    - name: Deploy to Argo Rollouts
+      run: |
+        kubectl argo rollouts set image openhands-rollout \
+        openhands=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:${{ github.sha }} \
+        -n openhands
+
+    # Watch Rollout Status
+    - name: Verify Rollout Status
+      run: |
+        kubectl argo rollouts get rollout openhands-rollout \
+        -n openhands
