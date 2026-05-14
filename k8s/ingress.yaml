@@ -9,7 +9,6 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
 
-    alb.ingress.kubernetes.io/subnets: subnet-0a4ef11620e6cb5b9,subnet-06ac55170d24f3459,subnet-0ba13a7234731e755
 
 spec:
   ingressClassName: alb
