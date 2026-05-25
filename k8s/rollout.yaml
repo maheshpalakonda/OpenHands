@@ -8,11 +8,7 @@ metadata:
 spec:
   replicas: 2
 
-  strategy:
-    blueGreen:
-      activeService: openhands-active
-      previewService: openhands-preview
-      autoPromotionEnabled: false
+  revisionHistoryLimit: 5
 
   selector:
     matchLabels:
@@ -25,8 +21,54 @@ spec:
 
     spec:
       containers:
-      - name: openhands
-        image: 800960611458.dkr.ecr.ap-south-1.amazonaws.com/openhands:latest
+        - name: openhands
 
-        ports:
-        - containerPort: 3000
+          image: 800960611458.dkr.ecr.ap-south-1.amazonaws.com/openhands:latest
+
+          ports:
+            - containerPort: 3000
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+
+  strategy:
+    canary:
+
+      stableService: openhands-stable
+      canaryService: openhands-canary
+
+      trafficRouting:
+        alb:
+          ingress: openhands-ingress
+          servicePort: 80
+
+      steps:
+        - setWeight: 10
+
+        - pause:
+            duration: 1m
+
+        - setWeight: 30
+
+        - pause:
+            duration: 2m
+
+        - setWeight: 60
+
+        - pause:
+            duration: 2m
+
+        - setWeight: 100

@@ -9,19 +9,18 @@ metadata:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
 
-
 spec:
   ingressClassName: alb
 
   rules:
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
 
-        backend:
-          service:
-            name: openhands-active
+            backend:
+              service:
+                name: openhands-stable
 
-            port:
-              number: 80
+                port:
+                  number: 80
