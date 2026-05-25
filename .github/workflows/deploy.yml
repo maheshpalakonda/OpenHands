@@ -82,8 +82,7 @@ jobs:
     - name: Watch Canary Rollout
       run: |
         kubectl argo rollouts get rollout openhands-rollout \
-        -n openhands \
-        --watch
+        -n openhands
 
     # Rollout Status Check
     - name: Verify Rollout Status
