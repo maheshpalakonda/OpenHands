@@ -1,4 +1,4 @@
-name: EKS Canary Deployment
+name: EKS Blue-Green Deployment
 
 on:
   push:
@@ -72,20 +72,14 @@ jobs:
         /usr/local/bin/kubectl-argo-rollouts
 
     # Deploy New Image
-    - name: Deploy Canary Rollout
+    - name: Deploy Blue-Green Rollout
       run: |
         kubectl argo rollouts set image openhands-rollout \
         openhands=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:${{ github.sha }} \
         -n openhands
 
-    # Watch Rollout Progress
-    - name: Watch Canary Rollout
+    # Watch Rollout
+    - name: Watch Blue-Green Rollout
       run: |
         kubectl argo rollouts get rollout openhands-rollout \
-        -n openhands
-
-    # Rollout Status Check
-    - name: Verify Rollout Status
-      run: |
-        kubectl argo rollouts status openhands-rollout \
         -n openhands
