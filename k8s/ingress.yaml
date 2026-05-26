@@ -20,7 +20,7 @@ spec:
 
             backend:
               service:
-                name: openhands-stable
+                name: openhands-active
 
                 port:
                   number: 80

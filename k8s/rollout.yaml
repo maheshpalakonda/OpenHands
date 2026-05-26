@@ -8,7 +8,7 @@ metadata:
 spec:
   replicas: 2
 
-  revisionHistoryLimit: 5
+  revisionHistoryLimit: 10
 
   selector:
     matchLabels:
@@ -34,7 +34,6 @@ spec:
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 5
-            failureThreshold: 3
 
           livenessProbe:
             httpGet:
@@ -42,24 +41,12 @@ spec:
               port: 3000
             initialDelaySeconds: 20
             periodSeconds: 10
-            failureThreshold: 3
 
   strategy:
-    canary:
+    blueGreen:
 
-      stableService: openhands-stable
-      canaryService: openhands-canary
+      activeService: openhands-active
 
-      trafficRouting:
-        alb:
-          ingress: openhands-ingress
-          servicePort: 80
+      previewService: openhands-preview
 
-      steps:
-        - setWeight: 10
-
-        - setWeight: 30
-
-        - setWeight: 60
-
-        - setWeight: 100
+      autoPromotionEnabled: false

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 
 metadata:
-  name: openhands-canary
+  name: openhands-active
   namespace: openhands
 
 spec:
