@@ -23,7 +23,7 @@ spec:
       containers:
         - name: openhands
 
-          image: 800960611458.dkr.ecr.ap-south-1.amazonaws.com/openhands:latest
+          image: 360967147235.dkr.ecr.ap-south-1.amazonaws.com/openhands:latest
 
           ports:
             - containerPort: 3000
