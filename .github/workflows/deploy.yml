@@ -9,7 +9,7 @@ env:
   AWS_REGION: ap-south-1
   ECR_REPOSITORY: openhands
   CLUSTER_NAME: openhands-cluster
-  AWS_ACCOUNT_ID: 800960611458
+  AWS_ACCOUNT_ID: 360967147235
 
 jobs:
   deploy:
